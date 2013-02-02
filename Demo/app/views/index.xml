@@ -1,0 +1,20 @@
+<Alloy>
+	<Collection src="book"/>
+	<Window class="container" layout="vertical">
+        <ButtonBar height="35" width="auto" onClick="onBtnClick">
+        	<Labels>
+        		<Label >+M</Label>
+        		<Label >+E</Label>
+        		<Label >uM</Label>
+        		<Label >uE</Label>
+        		<Label >dM</Label>
+        		<Label >dE</Label>
+        		<Label >Ftch</Label>
+        	</Labels>
+        </ButtonBar>
+        <TableView dataCollection="book" > <!-- dataTransform="transformFunction" dataFilter="filterFunction"> -->
+            <!-- Also can use Require -->
+            <TableViewRow title="{author}" />
+        </TableView>
+	</Window>
+</Alloy>
