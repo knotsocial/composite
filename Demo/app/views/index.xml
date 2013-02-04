@@ -14,7 +14,7 @@
         </ButtonBar>
         <TableView dataCollection="book" > <!-- dataTransform="transformFunction" dataFilter="filterFunction"> -->
             <!-- Also can use Require -->
-            <TableViewRow title="{author}" />
+            <TableViewRow title="{title}" />
         </TableView>
 	</Window>
 </Alloy>

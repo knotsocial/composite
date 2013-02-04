@@ -7,7 +7,7 @@ exports.definition = {
 			"isbn":"string"
 		},
 		"adapter": {
-			"type": "author:string",
+			"type": "composite",
 			"collection_name": "book"
 		}
 	},		
