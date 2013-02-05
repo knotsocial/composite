@@ -22,4 +22,6 @@ One of the benefits of such a system is that it allows developers to replace all
 
 **(Domain)Persistence** [Typically a subset of the domain model] Provides storage, queueing and replay of domain events.
 
+### Licensing
 
+Composite is Copyright 2012-2013 by Simon Giles and released under the MIT license.  See the license.txt file for details.
