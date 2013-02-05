@@ -1,6 +1,6 @@
 /**
  * @class Composite
- * Core module for Composite components
+ * Core module for Composite domain model eventing components
  * Copyright 2012-2013 by Simon Giles. All rights reserved.
  * Released under the MIT license.  
  * For details see: https://github.com/knotsocial/composite/blob/master/LICENSE.txt
@@ -9,7 +9,6 @@
  * fill in the missing part of Alloy's Model View Controller.  For more info see
  * https://github.com/knotsocial/composite
  */
-
 module.exports = (function(){ 
 	
 	// private variables ------------------------------------------------------
@@ -95,6 +94,16 @@ module.exports = (function(){
 		});	
 	}
 	  
+/**
+ * @method register
+ * Domain event publication method signatures registration. 
+ * Call with method signatures object to add domain events.
+ * @param {Object} eventSignatures object containing method signatures of events
+ * each signature method should be have the parameters expected when calling the event
+ * each signature method should return the domain event key for the event.
+ * A method will be added for each event method signature to the Composite.publish object
+ *
+ */
 	Composite.register = function( eventSignatures ){
 		// iterate throught the event siguatures
 		for( var name in eventSignatures){
@@ -122,12 +131,28 @@ module.exports = (function(){
 		Ti.App.fireEvent( _EVENT_STREAM, e );
 	}
 	
-	// export the event sources
+/**
+ * @property {Object} publish
+ * An object which stores all event publishing functions.
+ * A function is added to this object for each domain event signature registered
+ * with the Composite.register function.
+ * Invoke these functions to fire the corresponding domain event.
+ */
 	Composite.publish = _eventSources;
 	
 	// list of subscribed object handlers
 	var _eventHandlers = [];
-	
+
+/**
+ * @method subscribe
+ * Registers a domain event listener object.  
+ * Methods of this object which match the names of the registered domain event 
+ * signature methods will be inoked when an event is published by inboking the 
+ * Composite.publish.x method.
+ * To remove a subscribed event handler call Composite.unsubscribe passing the same handler.
+ * @param {Object} handler Object which will have methods invoked when events are published.
+ * The methods must have matching parameter signatures as the registerd signature methods.
+ */	
 	// calls the handler for the events
 	// an object with an eventName(eventParams) function, in which case the function of the object is called
 	// or an all(eventName,eventParams) function which is called for all objects
@@ -139,6 +164,11 @@ module.exports = (function(){
 		}
 	}
 	
+/**
+ * @method unsubscribe
+ * Unregisters a domain event listener object, reverting the behavior of the Composite.subscribe method
+ * @param {Object} handler The object to unregister.
+ */	
 	Composite.unsubscribe = function(handler){
 		if (_.isObject(handler)){ //typeof handler==="object"){
 			var i = _eventHandlers.indexOf(handler);
@@ -167,7 +197,7 @@ module.exports = (function(){
 		});
 	}
 	
-	// event stream sync ------------------------------------------------------
+	// domain event stream sync private variables -----------------------------
 
 	// the model event cache contains all of the backbone model related events from the event stream
 	// this event cache takes the form of an object with named properties which are the data in the form
@@ -178,16 +208,24 @@ module.exports = (function(){
 	
 	// stores the next ID for each model
 	// this is updated as we load models from the event stream, 
+	// used by _getNewModelID
 	var _modelNextID = {};
 	
+	// calculates a new model id
 	function _getNewModelID(cn){ 
 		var result = _modelNextID[cn] || 1;
 		_modelNextID[cn]=result+1;
 		return result;
 	}
 	
-	function _getCNPrefix(cn) { return cn+"_"; }
+	// calculates the collection name prefix part of the model event cache key and event key
+	function _getCNPrefix(cn) { 
+		return cn+"_"; 
+	}
 	
+	// calculates a unique key for a model in a collection based on the collection name and model id
+	// cn = collection name
+	// data = model "row" data
 	function _getModelEventCacheKey(cn,data){ 
 	    if (!data || !data.id){
 	    	Ti.API.warn("Data collection "+cn+" data without id. "+JSON.stringify(data));
@@ -195,6 +233,8 @@ module.exports = (function(){
 		return _getCNPrefix(cn) + data.id; 
 	}
 	
+	// calculates the domain event key for a model based on the collection name and model id
+	// this is the model event cache key prefixed by the word "DATA_"
 	// cn = collection name
 	// data = model "row" data
 	// note: data must have an id property
@@ -202,12 +242,12 @@ module.exports = (function(){
 		return "DATA_"+_getModelEventCacheKey(cn,data) ;
 	}
 		
-	// comppsote domain event signatures --------------------------------------
+	// comppsote domain event signatures for the sync adapter -----------------
 	
 	// the event siguatures must return a globally unique event key for the object the event inolves
 	// in this case all three events reference the same obect, and so return the same event key
 	// this allows us to keep only the latest event for the object when serializing	
-	var _compositeEventSignatures = {
+	var _syncEventSignatures = {
 		DATA_Create: function( cn, data, silent ){ 
 			// ensure that we have a new id on all created models
 			if (_.isUndefined(data.id)){ data.id = _getNewModelID(cn) };
@@ -227,10 +267,11 @@ module.exports = (function(){
 		}
 	}
 			
-	// composite domain event handlers ----------------------------------------
+	// composite domain event handlers for the sync adapter -------------------
 		
 	// these even handlers update the model event cache to reflect DATA_ events
-	var _compositeEventHandlers = {
+	// matches the 
+	var _syncEventHandlers = {
 		// called when a new record is created
 		DATA_Create: function( cn, data, silent ){ 
 			// create model event cache entry
@@ -363,35 +404,33 @@ module.exports = (function(){
 	        options.error("Record not found");
 	    }
 	};
-
-/*	
-	module.exports.beforeModelCreate = function(config) {
-	    config = config || {};
-	    // Perform some pre-checks (as an example)
-	    return config;
-	};
-	
-	
-	module.exports.afterModelCreate = function(Model) {
-	    Model = Model || {};
-		// Model.prototype.config.Model = Model; // needed for fetch operations to initialize the collection from persistent store	    
-	    // Set up the persistent storage device, apply migrations or preload data (as examples)
-	};
-*/
 	
 	// initialize the event listener ------------------------------------------
 	
+/**
+ * @method initialize
+ * Initializes the Composite domain event model.  Must be called once on each thread
+ * which wants to exchange dmoain events.
+ * Call Composite.finalize once for each call to Composite.initialize to avoid memory leaks.
+ * @param {Boolean} enableSyncAdapter Turns on Composite Alloy sync adapter allowing models with the
+ * type "composite" to integrate with the domain event model.
+ */	
 	Composite.initialize = function( enableSyncAdapter ){
 		Ti.App.addEventListener(_EVENT_STREAM,_onCompositeEvent);
 		// if composite event stream sync adapters should be enabled
 		if (enableSyncAdapter){
 			// register the composite domain event signatures
-			Composite.register(_compositeEventSignatures);
+			Composite.register(_syncEventSignatures);
 			// subscribe composite domain event handlers
-			Composite.subscribe( _compositeEventHandlers );
+			Composite.subscribe( _syncEventHandlers );
 		}
 	}
 	
+/**
+ * @method initialize
+ * Finalizes the Composite domain event model.  Must be called once on each thread which
+ * called the Composite.initialize method to avoid memory leaks.
+ */	
 	Composite.finalize = function(){
 		Ti.App.removeEventListener(_EVENT_STREAM,_onCompositeEvent);
 		// clean up variables
