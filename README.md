@@ -2,13 +2,13 @@
 
 Domain model event framework for Appcelerator Titanium Alloy
 
-The problem with MVC frameworks in general is that they tend not to provide a clear separation of view models and domain models.  This can lead to messy code, where domain model logic has been placed in amongst view model related code.  
+A common problem with MVC frameworks is they tend not to provide a clear separation of view models and domain models.  This can push developers towards writing messy code, where domain model logic has been placed in amongst view model related code.  
 
-One way of delineating the view and domain logic is to add a separate "domain event stream" and "domain model" specifically to handle the domain logic. Composite is  an attempt to create a framework which does just that. Using Composite you can create domain models completely decoupled from the UI MVC code facilitating a high level of business logic isolation fro UI logic.
+One way of delineating the view and business logic is to add a separate *domain event stream* and *domain model* which are entirely separate from the UI event stream and MVC. Composite is  an attempt to create a framework which does just that. Using Composite you can create domain models completely decoupled from the UI MVC code facilitating a high level of business logic isolation from UI logic.
 
-One of the benefits of such a system is that it allows developers to replace all data storage code with domain event serialization.  Which allows for automatic serialization of all models without having to define a schema, infinite undo / replay of all activity, offline queueing and retry, etc.
+One of the benefits of such a system is that it allows developers to replace all data storage code with domain event serialization.  This provides, almost for free, a number of beneficial features including: automatic serialization of all models without defining a data storage schema, infinite undo / replay of all user activity, communication failure recovery via offline queueing and retry, etc.
 
-[Note: Domain event serialization in composite hasn't been checked in yet.  Composite will support queued domain event serialization to SQLite / REST / extensible ]
+[Note: The domain event serialization in Composite hasn't been checked in yet.  Composite will support queued domain event serialization to Local SQLite / Remote REST / or extensible to whatever]
 
 ## Architectural Entities
 
