@@ -1,3 +1,14 @@
+/**
+ * @class Composite
+ * Core module for Composite components
+ * Copyright 2012-2013 by Simon Giles. All rights reserved.
+ * Released under the MIT license.  For details see: https://github.com/knotsocial/composite/license.txt
+ * 
+ * Composite is a Titanium Appcelerator CommonJS module for adding a domain model and domain eventing to 
+ * fill in the missing part of Alloy's Model View Controller.  For more info see
+ * https://github.com/knotsocial/composite
+ */
+
 Ti.API.trace("START:knot/composite.js");
 
 module.exports = (function(){ 
