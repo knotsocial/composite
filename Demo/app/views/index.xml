@@ -9,7 +9,8 @@
         		<Label >uE</Label>
         		<Label >dM</Label>
         		<Label >dE</Label>
-        		<Label >Ftch</Label>
+        		<Label >F</Label>
+        		<Label >R</Label>
         	</Labels>
         </ButtonBar>
         <TableView dataCollection="book" > <!-- dataTransform="transformFunction" dataFilter="filterFunction"> -->

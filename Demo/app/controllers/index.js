@@ -32,13 +32,13 @@ function onBtnClick(e){
 		    } else {
 		    	burningChrome.set( { title: "emorhC gninruB"});
 		    }
-		    var result = burningChrome.save()
+		    var result = burningChrome.save();
 		    Ti.API.trace( 'uM(Burning Chrome:title)'+ JSON.stringify( result) );
 			break;
 		case 3:
 			// update event
 			var j = burningChrome.toJSON();
-		    if (title ==="emorhC gninruB"){
+		    if (j.title ==="emorhC gninruB"){
 		    	j.title="Burning Chrome";
 		    } else {
 		    	j.title="emorhC gninruB";
@@ -64,12 +64,16 @@ function onBtnClick(e){
 				Composite.publish.DATA_Delete( "book", j );
 			    neuromancer = null;
 			} else {
-				Ti.API.trace("dM request but no model - create model first");
+				Ti.API.trace("dE(Neuromancer) request but no model - create model first");
 			}
 			break;
 		case 6:
 			// fetch
 			books.fetch();
+			break;
+		case 7:
+			// reset
+			books.reset();
 			break;
 	} 
 }

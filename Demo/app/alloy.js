@@ -13,3 +13,6 @@
 Ti.API.trace("START:alloy.js");
 
 Composite = require('/alloy/composite');
+
+// initialize Composite eventing
+Composite.initialize(true);

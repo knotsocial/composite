@@ -10,8 +10,6 @@
  * https://github.com/knotsocial/composite
  */
 
-Ti.API.trace("START:knot/composite.js");
-
 module.exports = (function(){ 
 	
 	// private variables ------------------------------------------------------
@@ -20,11 +18,8 @@ module.exports = (function(){
 	
 	// alloy injections -------------------------------------------------------
 	
-	Ti.API.trace("Injecting Composite...");
-	
 	var oldM = Alloy.M;	
 	Alloy.M = function(name, modelDesc, migrations){
-//		Ti.API.trace("wrapped Alloy.M function called");
 		var config = modelDesc.config;
 	    var type = (config.adapter ? config.adapter.type : null) || 'localDefault';
 	    if (type!=='composite'){
@@ -49,7 +44,6 @@ module.exports = (function(){
 	
 	var oldC = Alloy.C;
 	Alloy.C = function(name, modelDesc, model) {
-//		Ti.API.trace("wrapped Alloy.C function called");
 		var config = model.prototype.config; // modelDesc.config;
 	    var type = (config.adapter ? config.adapter.type : null) || 'localDefault';
 	    if (type!=='composite'){
@@ -68,8 +62,6 @@ module.exports = (function(){
 		return Collection;
 	}
 
-	Ti.API.trace("Composite injected");
-	
 	// event stream -----------------------------------------------------------
 	
 	var _EVENT_STREAM = "CES",
@@ -77,6 +69,31 @@ module.exports = (function(){
 		STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg,
 		GET_PARAMS = /([^\s,]+)/g,
 		_eventSources = { };  
+		
+	function _wrapEventFn( eventSignatures, name, fn ){
+		// createa  new function, wrapping the event signature
+		return _.wrap(fn,function(func){
+			// strip off comments from the function definition (not that there should be any)
+			var fnText = func.toString().replace(STRIP_COMMENTS, '');
+			// extract the function parameter names
+			var fnParams = fnText.slice(fnText.indexOf('(')+1, fnText.indexOf(')')).match(GET_PARAMS);
+			// extract func parameter values from the arguments
+			var fnParamValues = _.toArray(arguments).slice(1);
+			// invoke the event signature key function, defaulting to null if there is no result
+			var k=func.apply(eventSignatures,fnParamValues) || null;
+			//Ti.API.trace("> > FIRING DOMAIN EVENT:"+name+" key:"+k+" parameters:"+JSON.stringify(fnParamValues));
+			// if we have parameters
+			if (fnParams!==null){
+				// wrap the parameters up in object
+				var data = _.object(fnParams,fnParamValues);
+				// and invoke the _publish method passing it as the 3rd parameter
+				_publish(name,k,data);
+			} else {
+				// otherwise just invoke the publish method
+				_publish(name,k);
+			}			
+		});	
+	}
 	  
 	Composite.register = function( eventSignatures ){
 		// iterate throught the event siguatures
@@ -84,60 +101,9 @@ module.exports = (function(){
 			// get the function for the event
 			var fn = eventSignatures[name];
 			// make sure it's a function
-			if (typeof fn == 'function') {
-				Ti.API.trace( 'Building event function '+name)
-				// strip off comments from the function definition (not that there should be any)
-				var fnText = fn.toString().replace(STRIP_COMMENTS, '');
-				// extract the function parameters
-				var fnParams = fnText.slice(fnText.indexOf('(')+1, fnText.indexOf(')')).match(GET_PARAMS);
-				// write the function code 
-				var newCode = ['(function('];
-				// if there are function arguments
-				if (fnParams!==null){
-					// function arguments
-					newCode.push( fnParams.join(',') );
-				}
-				// close arguments, 
-				newCode.push('){');
-				// add code to calculate the event key
-				// which we get by invoking eventSignatures fn with the arguments
-				newCode.push('var k=eventSignatures.'+name+'(');
-				// if there are function arguments
-				if (fnParams!==null){
-					// function arguments
-					newCode.push( fnParams.join(',') );
-				}
-				// close the arguments
-				newCode.push(');');
-				// if we didn't get a key then set it to null
-				newCode.push('if (typeof k==="undefined"){k=null}');
-				// add trace logging for firing the event
-				newCode.push('Ti.API.trace("> > FIRING DOMAIN EVENT:'+name+' key:"+k);')
-				// add function body to publish the named event
-				newCode.push('_publish(');
-				// with the eventName parameter
-				newCode.push('"'+name+'"');
-				// and the eventKey parameter, 
-				newCode.push(',k');
-				// if there are function arguments
-				if (fnParams!==null){
-					// we encode them as the eventParams object
-					newCode.push(',{');
-					// code to serialize the function parameters into the event object
-					var first = true;
-					fnParams.forEach(function(param){
-						if (!first){ newCode.push(',') } else { first=false }
-						newCode.push(param+':'+param)
-					});
-					// close the object
-					newCode.push('}');
-				}
-				// close the code
-				newCode.push(')})');
-				var codeStr = newCode.join('');
-				Ti.API.trace('event function code: '+codeStr)
-				// update the _eventSources
-				_eventSources[name]=eval( codeStr );
+			if (_.isFunction(fn)){
+				// add the wrapped function to the event sources
+				_eventSources[name]=_wrapEventFn(eventSignatures,name,fn);				
 			}
 		}
 	}
@@ -149,7 +115,7 @@ module.exports = (function(){
 		// create an event object and set it's eventName 
 		var e = { eventName:eventName, eventKey:eventKey };
 		// if we have event parameters, add them to the event object
-		if (typeof eventParams!=="undefined"){
+		if (!_.isUndefined(eventParams)){
 			e.eventParams = eventParams;
 		}
 		// fire the event object as an app event (recieved by all contexts)
@@ -169,7 +135,7 @@ module.exports = (function(){
 		if (_.isObject(handler)){ // typeof handler === "object"){
 			_eventHandlers.push(handler);
 		} else {
-			throw "Unsupported Composite handler type "+typeof handler;
+			Ti.API.warn( "Unsupported Composite handler type "+typeof handler);
 		}
 	}
 	
@@ -201,14 +167,6 @@ module.exports = (function(){
 		});
 	}
 	
-	Composite.initialize = function(){
-		Ti.App.addEventListener(_EVENT_STREAM,_onCompositeEvent)
-	}
-	
-	Composite.finalize = function(){
-		Ti.App.removeEventListener(_EVENT_STREAM,_onCompositeEvent);
-	}
-	
 	// event stream sync ------------------------------------------------------
 
 	// the model event cache contains all of the backbone model related events from the event stream
@@ -229,48 +187,55 @@ module.exports = (function(){
 	}
 	
 	function _getCNPrefix(cn) { return cn+"_"; }
+	
 	function _getModelEventCacheKey(cn,data){ 
-		var prefix = _getCNPrefix(cn);
-		var id = data.id;
-		return prefix+id; 
+	    if (!data || !data.id){
+	    	Ti.API.warn("Data collection "+cn+" data without id. "+JSON.stringify(data));
+	    }
+		return _getCNPrefix(cn) + data.id; 
 	}
 	
 	// cn = collection name
 	// data = model "row" data
 	// note: data must have an id property
 	function _getEventKey( cn, data ){ 
-		var key = _getModelEventCacheKey(cn,data) 
-		return "DATA_"+key;
+		return "DATA_"+_getModelEventCacheKey(cn,data) ;
 	}
-	
-	
+		
 	// comppsote domain event signatures --------------------------------------
 	
 	// the event siguatures must return a globally unique event key for the object the event inolves
 	// in this case all three events reference the same obect, and so return the same event key
 	// this allows us to keep only the latest event for the object when serializing	
 	var _compositeEventSignatures = {
-		DATA_Create: function( cn, data, silent ){ return _getEventKey(cn,data) },
-		DATA_Update: function( cn, data, silent ){ return _getEventKey(cn,data) },
-		DATA_Delete: function( cn, data, silent ){ return _getEventKey(cn,data) }
+		DATA_Create: function( cn, data, silent ){ 
+			// ensure that we have a new id on all created models
+			if (_.isUndefined(data.id)){ data.id = _getNewModelID(cn) };
+			return _getEventKey(cn,data) 
+		},
+		DATA_Update: function( cn, data, silent ){ 
+			if(_.isUndefined(data.id)){ 
+				Ti.API.warn("Data update without id for collection "+cn+" data:"+JSON.stringify(data))
+			}
+			return _getEventKey(cn,data) 
+		},
+		DATA_Delete: function( cn, data, silent ){ 
+			if(_.isUndefined(data.id)){ 
+				Ti.API.warn("Data deletion without id for collection "+cn+" data:"+JSON.stringify(data))
+			}
+			return _getEventKey(cn,data) 
+		}
 	}
-		
-	// register the composite domain event signatures -------------------------
-	
-	Composite.register(_compositeEventSignatures);
-	
-	// event handlers ---------------------------------------------------------
+			
+	// composite domain event handlers ----------------------------------------
 		
 	// these even handlers update the model event cache to reflect DATA_ events
 	var _compositeEventHandlers = {
 		// called when a new record is created
 		DATA_Create: function( cn, data, silent ){ 
 			// create model event cache entry
-			// if the data doesn't have an id 
-			if (!data.id){
-				// allocate a new id
-            	data.id = _getNewModelID(cn);
-			}
+			// ensure that we have a new id on all created models
+			if (_.isUndefined(data.id)){ data.id = _getNewModelID(cn) };
 			// get the model event cache key
 			var key = _getModelEventCacheKey(cn,data);
 			// cache the data with the key
@@ -287,26 +252,30 @@ module.exports = (function(){
 		},
 		// called when a row is updated
 		DATA_Update: function( cn, data, silent ){	
-			// update model event cache entry
-			// get the model event cache key
-			var key = _getModelEventCacheKey(cn,data);
-			// update the cached data with the key
-			_modelEventCache[key] = data;
-			// if this model isn't coming via the _sync method 
-			if (!silent){
-				// then it needs to be added to the appropriate alloy collection
-            	// get the collection
-            	var collection = Alloy.Collections[cn] || Alloy.createCollection(cn);
-            	// get the model
-            	var model = collection.get(data.id);
-            	// update the object
-            	// note: this triggers backbone events which will update the Alloy ui
-            	model.set(data);
-            }
+			if (!_.isUndefined(data.id)){
+				// update model event cache entry
+				// get the model event cache key
+				var key = _getModelEventCacheKey(cn,data);
+				// update the cached data with the key
+				_modelEventCache[key] = data;
+				// if this model isn't coming via the _sync method 
+				if (!silent){
+					// then it needs to be added to the appropriate alloy collection
+	            	// get the collection
+	            	var collection = Alloy.Collections[cn] || Alloy.createCollection(cn);
+	            	// get the model
+	            	var model = collection.get(data.id);
+	            	// update the object
+	            	// note: this triggers backbone events which will update the Alloy ui
+	            	model.set(data);
+	            }
+	            
+			} else {
+				Ti.API.warn("Data update without id for collection "+cn+" data:"+JSON.stringify(data));
+			}
 		},
 		DATA_Delete: function( cn, data, silent ){ 
-			debugger;
-			if (data.id){
+			if (!_.isUndefined(data.id)){
 				// delete model event cache entry
 				// get the model event cache key
 				var key = _getModelEventCacheKey(cn,data);
@@ -322,19 +291,16 @@ module.exports = (function(){
 	            	collection.remove([data]);
 	            }
 			} else {
-				// todo: delete all cn data
+				// TODO: delete all cn data in response to Collection.reset   ???
+				Ti.API.warn("Data deletion without id for collection "+cn+" data:"+JSON.stringify(data));
 			}
 		}
 	}
-	
-	// -- subscribe knot domain event handlers ------------------------------------
 		
-	Composite.subscribe( _compositeEventHandlers );
-	
 	// backbone methods -----------------------------------------------------------
 	
 	function _sync(method, model, options) {
-		Ti.API.trace("Composite._sync( "+method+","+JSON.stringify(model)+","+JSON.stringify(options)+")");
+		// Ti.API.trace("Composite._sync( "+method+","+JSON.stringify(model)+","+JSON.stringify(options)+")");
 		var cn =  model.config.adapter.collection_name;
 	    var resp; // sync results
 	
@@ -362,27 +328,30 @@ module.exports = (function(){
 	            // Add the model to persistent storage and return the model upon success
 	            // Assign a unique value (integer or UUID) to model.id and model.attribute.id if needed
 	            model.id || (model.id = _getNewModelID(cn));
-	            var attrObj = {};
-	            attrObj[model.idAttribute] = model.id;
+	            // note: instead of
 	            // model.set(model.idAttribute, model.id);
 	            // make it silent so it doesn't fire an unnecessary
 				// Backbone change event
+	            var attrObj = {};
+	            attrObj[model.idAttribute] = model.id;
 				model.set(attrObj, {silent:true});
+				// get the response object
 	            resp = model.toJSON();
-	            // trigger a DATA_Create event for this new model row
+	            // trigger a DATA_Create event for this new model
 	            Composite.publish.DATA_Create(cn,resp,true);
 	            break;
 	        case "update":
 	            // Update the model in persistent storage and return the updated model upon success
+				// get the response object
 	            resp = model.toJSON();
-	            // trigger a DATA_Update event for this new model row
+	            // trigger a DATA_Update event for this model
 	            Composite.publish.DATA_Update(cn,resp,true);
 	            break;
 	        case "delete":
 	            // Remove a model from persistent storage and return the removed model upon success
-	            debugger;
+				// get the response object
 	            resp = model.toJSON();
-	            // trigger a DATA_Delete event for this new model row
+	            // trigger a DATA_Delete event for this model
 	            Composite.publish.DATA_Delete(cn,resp,true);
 	            break;
 	    }
@@ -412,7 +381,25 @@ module.exports = (function(){
 	
 	// initialize the event listener ------------------------------------------
 	
-	Composite.initialize();
+	Composite.initialize = function( enableSyncAdapter ){
+		Ti.App.addEventListener(_EVENT_STREAM,_onCompositeEvent);
+		// if composite event stream sync adapters should be enabled
+		if (enableSyncAdapter){
+			// register the composite domain event signatures
+			Composite.register(_compositeEventSignatures);
+			// subscribe composite domain event handlers
+			Composite.subscribe( _compositeEventHandlers );
+		}
+	}
+	
+	Composite.finalize = function(){
+		Ti.App.removeEventListener(_EVENT_STREAM,_onCompositeEvent);
+		// clean up variables
+		delete _eventSources; _eventSources = {};
+		delete _modelEventCache; _modelEventCache = {};
+		delete _modelNextID; _modelNextID = {};
+		_eventHandlers = [];
+	}
 	
 	// public interface -------------------------------------------------------
 	
