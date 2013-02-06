@@ -12,7 +12,7 @@
 
 Ti.API.trace("START:alloy.js");
 
-Composite = require('/alloy/composite');
+Composite = Alloy.Globals.Composite = require('/composite');
 
 // initialize Composite eventing
 Composite.initialize(true);
