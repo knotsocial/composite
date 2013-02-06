@@ -69,15 +69,15 @@ Add an Alloy model, and set it's config.adapter.type to "composite".  Here is a 
 
 #### Publishing a domain event:
 
-> `	Composite.publish.sampleEvent( "sampleParamValue1", "sampleParamValue2" );'
+> `	Composite.publish.sampleEvent( "sampleParamValue1", "sampleParamValue2" );`
 
 #### Subscribing to a domain event:
 
-> `	var sampleEventHandlers = {`
-> `		sampleEvent: function(sampleParam1,sampleParam2){`
-> `			alert( "sampleEvent handler triggered" );`
-> `		}`
-> `	}`
+> `	var sampleEventHandlers = {`  
+> `		sampleEvent: function(sampleParam1,sampleParam2){`  
+> `			alert( "sampleEvent handler triggered" );`  
+> `		}`  
+> `	}`  
 > `	Composite.subscribe(sampleEventSignature);` 
  
 *Note: For brevity this sample only subscribes to one event.  Multiple events can be subscribed to by adding additional methods to the event handlers object.*
