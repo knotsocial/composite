@@ -37,39 +37,39 @@ One of the benefits of such a system is that it allows developers to replace all
 
 #### Enabling composite:
 
-> `	Composite = Alloy.Global.Composite = require('/composite.js');`
-> `	Composite.initialize(true);`
+	Composite = Alloy.Global.Composite = require('/composite.js');
+	Composite.initialize(true);
 
 #### Hooking up a Model to the domain event stream:
 Add an Alloy model, and set it's config.adapter.type to "composite".  Here is a sample of the minimal code required:
 
-> `	exports.definition = {`
-> `		config: {`
-> `			"adapter": {`
-> `				"type": "composite",`
-> `				"collection_name": "yourCollectionName"`
-> `			}`
-> `		}`
-> `	}`
+	exports.definition = {
+		config: {
+			"adapter": {
+				"type": "composite",
+				"collection_name": "yourCollectionName"
+			}
+		}
+	}
 
 *Note: You may wish to add column definitions to the config, and extend the Model and Collection in the normal way for a model*	
 
 #### Defining a domain event signature:
 
-> `	var sampleEventSignatures = {`
-> `		sampleEvent: function(sampleParam1,sampleParam2){`
-> `			// sample returns an event key made up of a prefix and id`
-> `			// demo assumes the first parameter is unique`
-> `			return "sampleEventKey_"+sampleParam1;`
-> `		}`
-> `	}`
-> `	Composite.register(sampleEventSignature);`
+	var sampleEventSignatures = {
+		sampleEvent: function(sampleParam1,sampleParam2){
+			// sample returns an event key made up of a prefix and id
+			// demo assumes the first parameter is unique
+			return "sampleEventKey_"+sampleParam1;
+		}
+	}
+	Composite.register(sampleEventSignature);
 
 *Note: For brevity this sample only registers one event signature.  Multiple methods can be added to the event signature object to define multiple events.*
 
 #### Publishing a domain event:
 
-> `	Composite.publish.sampleEvent( "sampleParamValue1", "sampleParamValue2" );`
+	Composite.publish.sampleEvent( "sampleParamValue1", "sampleParamValue2" );
 
 #### Subscribing to a domain event:
 
