@@ -37,6 +37,7 @@ One of the benefits of such a system is that it allows developers to replace all
 
 #### Enabling composite:
 To include CompositeJS add the following to your `/app/alloy.js` file.
+
 	Composite = Alloy.Global.Composite = require('/composite.js');
 	Composite.initialize(true);
 
