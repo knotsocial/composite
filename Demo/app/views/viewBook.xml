@@ -1,0 +1,16 @@
+<Alloy>
+	<TableViewRow class="row" height="34">
+		<Label class="text" text="{title}" top="0" left="0" width="110"/>
+		<Label class="text" text="{author}" top="15" left="0" width="110"/>
+		<Label class="text" text="{isbn}" top="0" left="110" width="110"/>
+		<Label class="text" text="{id}" top="15" left="110" width="110"/>
+        <ButtonBar class="text" top="2" height="28" right="0" width="100" onClick="onBtnModelClick" >
+        	<Labels>
+        		<Label >uM</Label>
+        		<Label >uE</Label>
+        		<Label >dM</Label>
+        		<Label >dE</Label>
+        	</Labels>
+        </ButtonBar>		
+	</TableViewRow>
+</Alloy>

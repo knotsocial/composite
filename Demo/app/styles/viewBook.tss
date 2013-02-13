@@ -1,0 +1,6 @@
+".container": {
+	backgroundColor: "white"
+},
+".text": {
+	font: { fontSize:11 }
+}

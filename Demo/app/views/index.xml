@@ -1,21 +1,19 @@
 <Alloy>
 	<Collection src="book"/>
 	<Window class="container" layout="vertical">
-        <ButtonBar height="35" width="auto" onClick="onBtnClick">
+        <ButtonBar height="35" width="auto" onClick="onBtnDataClick">
         	<Labels>
         		<Label >+M</Label>
         		<Label >+E</Label>
-        		<Label >uM</Label>
-        		<Label >uE</Label>
-        		<Label >dM</Label>
-        		<Label >dE</Label>
         		<Label >F</Label>
-        		<Label >R</Label>
+        		<Label >rM</Label>
+        		<Label >S</Label>
+        		<Label >D</Label>
+        		<Label >C</Label>
         	</Labels>
         </ButtonBar>
         <TableView dataCollection="book" > <!-- dataTransform="transformFunction" dataFilter="filterFunction"> -->
-            <!-- Also can use Require -->
-            <TableViewRow title="{title}" />
+            <Require src="viewBook"/>
         </TableView>
 	</Window>
 </Alloy>

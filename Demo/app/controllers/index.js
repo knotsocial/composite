@@ -1,88 +1,81 @@
 Ti.API.trace("START:controllers/index.js");
+
+// get sql serialization enxtension for test.db
+var sql = Composite.serialization.sql( 'test.db', function(n,k,p){return true}, false );
+
 // get a reference to the book collection singleton
 var books = Alloy.Collections.book;
-// create the burningChrome book object, which we use to test the update code
-var burningChrome = books.create({author:"William Gibson",title:"emorhC gninruB",isbn:"9780441089345"})
-Ti.API.trace( 'Setup:+M(Burnin Chrome)'+ JSON.stringify( burningChrome.toJSON()) );
-var neuromancer = null;
 
-function doClick(e) {  
-    alert($.label.text);
+// used when we need to create new book data
+var _bookData = [
+	{author:"William Gibson",	title:"Neuromancer",			isbn:"0-441-56956-0"},
+	{author:"William Gibson",	title:"Count Zero",				isbn:"0-575-03696-6"},
+	{author:"William Gibson",	title:"Burning Chrome",			isbn:"978-0-06-053982-5"},
+	{author:"William Gibson",	title:"Mona Lisa Overdrive",	isbn:"0-553-05250-0"},
+	{author:"William Gibson",	title:"Virtual Light",			isbn:"978-0-14-015772-7"},
+	{author:"William Gibson",	title:"Idoru",					isbn:"978-0-14-024107-5"},
+	{author:"William Gibson",	title:"All Tomorrow's Parties",	isbn:"0-670-87557-0"},
+	{author:"William Gibson",	title:"Pattern Recognition",	isbn:"0-399-14986-4"},
+	{author:"William Gibson",	title:"Spook Country",			isbn:"0-670-91494-0"},
+	{author:"William Gibson",	title:"Zero History",			isbn:"0670919527"}
+];
+var bookOffset = 0;
+
+// returns a new book
+function GetBook(){
+	var result = _.clone( _bookData[bookOffset % 10] );
+	bookOffset++;
+	result.title += "."+bookOffset;
+	return result;
 }
 
-function onBtnClick(e){
+// button bar event handler
+function onBtnDataClick(e){
 	switch(e.index)
 	{
 		case 0:
 		    // add model
-		    neuromancer = books.create({author:"William Gibson",title:"Neuromancer",isbn:"9780441569564"})
+		    neuromancer = books.create( GetBook() )
 		    Ti.API.trace( '+M(Neuromancer)'+ JSON.stringify( neuromancer.toJSON()) )
 			break;
 		case 1:
 			// add event
-			var countZero = {author:"William Gibson",title:"Count Zero",isbn:"9780575036963"};
+			var countZero = GetBook();
 		    Ti.API.trace( '+E(Count Zero)'+ JSON.stringify( countZero ) )
 			Composite.publish.DATA_Create( "book", countZero)
 			break;
 		case 2:
-			// update model
-			var title = burningChrome.get("title");
-		    if (title ==="emorhC gninruB"){
-		    	burningChrome.set( { title: "Burning Chrome"});
-		    } else {
-		    	burningChrome.set( { title: "emorhC gninruB"});
-		    }
-		    var result = burningChrome.save();
-		    Ti.API.trace( 'uM(Burning Chrome:title)'+ JSON.stringify( result) );
-			break;
-		case 3:
-			// update event
-			var j = burningChrome.toJSON();
-		    if (j.title ==="emorhC gninruB"){
-		    	j.title="Burning Chrome";
-		    } else {
-		    	j.title="emorhC gninruB";
-		    }
-		    Ti.API.trace( 'uE(Burning Chrome:isbn)'+ JSON.stringify( j ) );
-			Composite.publish.DATA_Update( "book", j );
-			break;
-		case 4:
-			// delete model
-			if (neuromancer!==null){
-				var result = neuromancer.destroy();
-			    Ti.API.trace( 'dM(Neuromancer)'+ JSON.stringify( result ) )
-			    neuromancer = null;
-			} else {
-				Ti.API.trace("dM(Neuromancer) request but no model - create model first");
-			}
-			break;
-		case 5:
-			// delete event
-			if (neuromancer!==null){
-				Ti.API.trace("dE(Neuromancer)");
-				var j = neuromancer.toJSON();
-				Composite.publish.DATA_Delete( "book", j );
-			    neuromancer = null;
-			} else {
-				Ti.API.trace("dE(Neuromancer) request but no model - create model first");
-			}
-			break;
-		case 6:
 			// fetch
 			books.fetch();
 			break;
-		case 7:
+		case 3:
 			// reset
 			books.reset();
 			break;
+		case 4:
+		    // serialize
+		    Ti.API.trace( 'Serialize' );
+		    Composite.serialize(sql);
+			break;
+		case 5:
+			// deserialize
+		    Ti.API.trace( 'Deserialize' )
+		    Composite.deserialize(sql);
+			break;
+		case 6:
+			// delete serialized data
+		    Ti.API.trace( 'Clearing database' );
+			var db = Ti.Database.open('test.db');
+			try {
+				db.execute('DELETE FROM tbl_CES');
+			}
+			finally{
+				// close the database
+				db.close();
+				db = null;
+			}		    
+			break;			
 	} 
 }
-
-var _compositeEventSignatures = {
-	DATA_Create: function( cn, data ){ Ti.API.trace("DATA_Create:"+cn+":"+JSON.stringify(data)) },
-	DATA_Update: function( cn, data ){ Ti.API.trace("DATA_Update:"+cn+":"+JSON.stringify(data)) },
-	DATA_Delete: function( cn, data ){ Ti.API.trace("DATA_Delete:"+cn+":"+JSON.stringify(data)) }
-}
-
 
 $.index.open();
