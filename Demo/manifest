@@ -1,9 +1,9 @@
-#appname: Demo
-#appid: knotsocial.composite.demo
-#type: mobile
-#guid: bfa78943-441f-4a48-80fd-24691034f557
-#version: 1.0
-#publisher: not specified
-#url: not specified
-#image: appicon.png
-#desc: not specified
+#appname:Demo
+#appid:net.knotsocial.composite.demo
+#type:mobile
+#guid:f5eabf5d-29c2-4e69-a73e-ebc2fe1c17bb
+#version:1.0
+#publisher:user
+#url:https://github.com/knotsocial/composite
+#image:appicon.png
+#desc:not specified
