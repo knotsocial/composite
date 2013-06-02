@@ -74,6 +74,7 @@ module.exports = ( function() {
 	// event stream -----------------------------------------------------------
 
 	var _EVENT_STREAM = "CES", 
+		_EVENT_STREAM_CTRL = 'CESCTL',
 		_ALL_HANDLER = "all", 
 		_STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg, 
 		_GET_PARAMS = /([^\s,]+)/g, 
@@ -92,13 +93,10 @@ module.exports = ( function() {
 			var fnParamValues = _.toArray(arguments).slice(1);
 			// invoke the event signature key function, defaulting to null if there is no result
 			var k = func.apply(eventSignatures, fnParamValues) || null;
-			//Ti.API.trace("> > FIRING DOMAIN EVENT:"+name+" key:"+k+" parameters:"+JSON.stringify(fnParamValues));
 			// if we have parameters
 			if (fnParams !== null) {
-				// wrap the parameters up in object
-//				var data = _.object(fnParams, fnParamValues);
 				// and invoke the _publish method passing it as the 3rd parameter
-				_publish(name, k, fnParamValues ); // data);
+				_publish(name, k, fnParamValues );
 			} else {
 				// otherwise just invoke the publish method
 				_publish(name, k);
@@ -143,9 +141,9 @@ module.exports = ( function() {
 		// if we have event parameters, add them to the event object
 		if (!_.isUndefined(eventParams)) {
 			e.eventParams = eventParams;
-			Ti.API.debug('CES Event:'+eventName+' Key:'+eventKey+' Params:'+JSON.stringify(eventParams));
+			Ti.API.debug('Firing CES Event:'+eventName+' Key:'+eventKey+' Params:'+JSON.stringify(eventParams));
 		} else {
-			Ti.API.debug('CES Event:'+eventName+' Key:'+eventKey);
+			Ti.API.debug('Firing CES Event:'+eventName+' Key:'+eventKey);
 		}
 		// fire the event object as an app event (recieved by all contexts)
 		Ti.App.fireEvent(_EVENT_STREAM, e);
@@ -176,7 +174,13 @@ module.exports = ( function() {
 	 */
 	Composite.subscribe = function(handler) {
 		if (_.isObject(handler)) {// typeof handler === "object"){
-			_eventHandlers.push(handler);
+			// check if we have the handler registered
+			var i = _eventHandlers.indexOf(handler);
+			// if we don't
+			if (i === -1) {
+				// add the handler
+				_eventHandlers.push(handler);
+			}
 		} else {
 			Ti.API.warn("Unsupported Composite handler type " + typeof handler);
 		}
@@ -186,10 +190,14 @@ module.exports = ( function() {
 	 * Unregisters a domain event listener object, reverting the behavior of the Composite.subscribe method
 	 * @param {Object} handler The object to unregister.
 	 */
-	Composite.unsubscribe = function(handler) {
+	Composite.unsubscribe = function(handler) {		
+		// validate the handler
 		if (_.isObject(handler)) {//typeof handler==="object"){
+			// check if we have the handler registered
 			var i = _eventHandlers.indexOf(handler);
+			// if we do
 			if (i !== -1) {
+				// remove the handler
 				_eventHandlers.splice(i, 1);
 			}
 		}
@@ -198,6 +206,7 @@ module.exports = ( function() {
 	// internal application event sync, mapps application events to composite events and invokes
 	// registered event handler methods
 	function _onCompositeEvent(e) {
+		Ti.API.trace('Handling CES Event:'+e.eventName+' Key:'+e.eventKey)
 		// iterate the object event handlers
 		_eventHandlers.forEach(function(obj) {
 			// check for matching function
@@ -323,6 +332,7 @@ module.exports = ( function() {
 	var _syncEventHandlers = {
 		// called when a new record is created
 		DATA_Create : function(cn, data, silent) {
+			Ti.API.trace('Composite.syncevent.DATA_Create('+cn+','+JSON.stringify(data)+','+silent+')');
 			// create model event cache entry
 			// ensure that we have a new id on all created models
 			if (_.isUndefined(data.id)) {
@@ -346,6 +356,7 @@ module.exports = ( function() {
 		},
 		// called when a row is updated
 		DATA_Update : function(cn, data, silent) {
+			Ti.API.trace('Composite.syncevent.DATA_Update('+cn+','+JSON.stringify(data)+','+silent+')');
 			if (!_.isUndefined(data.id)) {
 				_checkNextModelID(cn,data.id);
 				// update model event cache entry
@@ -376,6 +387,7 @@ module.exports = ( function() {
 			}
 		},
 		DATA_Delete : function(cn, data, silent) {
+			Ti.API.trace('Composite.syncevent.DATA_Delete('+cn+','+JSON.stringify(data)+','+silent+')');
 			if (!_.isUndefined(data.id)) {
 				_checkNextModelID(cn,data.id);
 				// delete model event cache entry
@@ -402,7 +414,7 @@ module.exports = ( function() {
 	// backbone methods -----------------------------------------------------------
 
 	function _sync(method, model, options) {
-		// Ti.API.trace("Composite._sync( "+method+","+JSON.stringify(model)+","+JSON.stringify(options)+")");
+		Ti.API.trace("Composite._sync( "+method+","+JSON.stringify(model)+","+JSON.stringify(options)+")");
 		var cn = model.config.adapter.collection_name;
 		var resp;
 		// sync results
@@ -420,7 +432,6 @@ module.exports = ( function() {
 					var cnPrefix = _getCNPrefix(cn);
 					_.each(_modelEventCache, function(data, cn) {
 						if (cn.substring(0, cnPrefix.length) === cnPrefix) {
-							// if (cn.startsWith(cnPrefix)){
 							resp.push(data)
 						}
 					});
@@ -436,9 +447,7 @@ module.exports = ( function() {
 				// Backbone change event
 				var attrObj = {};
 				attrObj[model.idAttribute] = model.id;
-				model.set(attrObj, {
-					silent : true
-				});
+				model.set(attrObj, { silent:true });
 				// get the response object
 				resp = model.toJSON();
 				// trigger a DATA_Create event for this new model
@@ -513,8 +522,11 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 			thrown("Invalid SQL serialization match function");
 		}
 		
+		var _name = 'CES.SQL.'+matchFn.name+'('+dbName+')';
+		
 		// create or update the SQL schema of the named database to support CES serialization
 		function _init(){
+			Ti.API.trace('CES Init Serialization: '+this.name)
 			// create the database
 			var db = Ti.Database.open(dbName);
 			try {
@@ -594,6 +606,11 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 				var paramStr = null;
 				// if the eventParams is non null object
 				if (_.isObject(eventParams) && !_.isNull(eventParams)){
+					// if the name starts with DATA_ then set the silent parameter to false
+					if (eventName==="DATA_Create" || eventName==="DATA_Update" || eventName==="DATA_Delete"){
+						// Ti.API.trace('Falsing silent:'+eventParams[2]);
+						eventParams[2] = false;
+					}
 					// convert the eventParams object into a JSON string for serialization
 					var paramStr = JSON.stringify(eventParams);
 					// if we have a transform function
@@ -611,6 +628,8 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 				}
 				// if we have a valid parameter string to write to the database
 				if (!_.isUndefined(paramStr)){
+					// logging
+					Ti.API.debug('CES Serialize '+_name+': K:'+eventKey+' N:'+eventName+' P:'+paramStr);
 					// open the database
 					var db = Ti.Database.open(dbName);
 					try {
@@ -648,6 +667,8 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 						var eventName = rows.fieldByName('N');
 						// get the event param json string
 						var eventParams = rows.fieldByName('P');
+						// logging
+						Ti.API.debug('CES Deserialize '+_name+': K:'+eventKey+' N:'+eventName+' P:'+eventParams);
 						// if eventParams is a string 
 						if (_.isString(eventParams)){
 							// if we have a read transform function
@@ -661,7 +682,16 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 								}
 							}
 							// convert eventPrams from a string into an object
-							eventParams = JSON.parse( eventParams );
+							var eventObj;
+							try
+							{
+								eventObj = JSON.parse( eventParams );
+							}
+							catch(error){
+								Ti.API.error("CES: Deserialize JSON parse error:"+eventParams);
+								throw error;
+							}
+							var eventParams = eventObj;
 							// for data events we remove the silent parameter
 							if (_.isString(eventName) && eventName.substring(0,5)==="DATA_"){
 								// this causes deserialized data events to update their Alloy controllers
@@ -698,7 +728,8 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 		return { 
 			init: _init,
 			write: _write,
-			read: _read 
+			read: _read,
+			name: _name 
 		}		
 	}
 
@@ -707,19 +738,26 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 	 * Factory for memory serialization extension objects
 	 * @param {Function} matchFn the match function used to determine which events to serialize
 	 */	
-	Composite.serialization.memory = function( matchFn ){
+	Composite.serialization.memory = function( matchFn, name ){
 		
 		var _cache;	
+		
+		var _name = 'CES.Memory.'+matchFn.name+'('+name+')';
 
 		// clears the _cache object to support CES serialization
 		function _init(){
+			Ti.API.trace('CES Init Serialization: '+this.name)
 			_cache = new Array();
 		}
 
 		// writes an event to the serialization _cache array
 		function _write(eventName,eventKey,eventParams){
-			// invoke the match function to check if this is an event we should be persisting
+			// invoke the match function to check if this is an event we should be persisted
 			if (matchFn(eventName,eventKey,eventParams)){
+				// logging
+				Ti.API.debug('CES Serialize '+_name+': K:'+eventKey+' N:'+eventName+' P:'+JSON.stringify(eventParams));
+				// remove any prior entry in the cache with the same key
+				delete _cache[eventKey];
 				// add the event to the _cache
 				_cache.push( { N:eventName, K:eventKey, P:eventParams });
 			}
@@ -729,6 +767,8 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 		function _read( publishFn ){
 			// iterate through the _cache
 			_.each(_cache, function(e){ 
+				// logging
+				Ti.API.debug('CES Deerialize '+_name+': K:'+e.K+' N:'+e.N+' P:'+JSON.stringify(e.P));
 				// publish each event
 				publishFn(e.N,e.K,e.P);
 			});
@@ -740,10 +780,62 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 		return {
 			init: _init,
 			write: _write,
-			read: _read 
+			read: _read,
+			name: _name
 		}
 	}	
 	
+	// Serialization management ------------------------------------
+	
+	// dictionary of serialization extensions stored by their name { name:ext }
+	var _serializationExtensions = {};
+	
+	// e = { name:serialization extension name, enabled:boolean }
+	function _onCompositeEventControl(e){
+		// get the serialization extension from the name
+		var ext = _serializationExtensions[e.name];
+		// if we have an extension (we might not due to theading)
+		if (_.isObject(ext)){
+			// turn seriialization on or off
+			_setSerialization( ext, e.enabled)
+		}
+	}
+	
+	function _setSerialization( serializationExtension, enabled ){
+		// are we turning serialization on?
+		if (enabled){
+			// if serialization isn't turned on (i.e. we don't already have an event handler for this serialization extension)
+			if (!("__eventHandler" in serializationExtension)){
+				// log
+				Ti.API.trace( 'CES:serialization extention enabled:'+serializationExtension.name );
+				// create a new event handler for the extension
+				serializationExtension.__eventHandler = { all:serializationExtension.write };
+				// subscribe the event handler
+				Composite.subscribe( serializationExtension.__eventHandler );
+			}
+		} else {
+			// if serialization is turned on (i.e. there is an event handler for the serialization extension)
+			if ("__eventHandler" in serializationExtension){
+				// log
+				Ti.API.trace( 'CES:serialization extention disabled:'+serializationExtension.name );
+				// unsubcribe the __eventHandler
+				Composite.unsubscribe( serializationExtension.__eventHandler );
+				// and delete it from the serializationExtension object
+				delete serializationExtension.__eventHandler;
+			}
+		}
+	}
+	
+	function _isSerializationEnabled( serializationExtension ){
+		// if we have an extension object
+		if (_.isObject(serializationExtension)){
+			// then return the enabled state of it
+			return ("__eventHandler" in serializationExtension);
+		} else {
+			return false;
+		}
+	}
+		
 	/**
 	 * @method serialize
 	 * @param {String} dbName the name of the database file to serialize to.
@@ -752,64 +844,61 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 	 * to the database.  Expects the form function(eventName,eventKey,eventParams)
 	 */
 	Composite.serialize = function( serializationExtension ){
-		// if serializationExtension is an object
-		// and it has the required methods
-		// and it doesn't already have an __eventHandler
-		if (_.isObject(serializationExtension) && ("init" in serializationExtension) && ("write" in serializationExtension) && ("read" in serializationExtension)){
+		// if the serializaton object has the expected interface
+		if (_.isObject(serializationExtension) && ("init" in serializationExtension) && ("write" in serializationExtension) && ("read" in serializationExtension) && (serializationExtension.hasOwnProperty("name"))){
+/* note: actually this is ok, because of Composite.deserialize
+			// check we haven't already cached this extension
+			var i = _eventHandlers.indexOf(handler);
+			// if we have it already
+			if (i !== -1) {
+				throw 'Composite Error: Duplicate serialization extension '+serializationExtension.name;
+			}
+*/			
 			// initialize the serialization extension
 			if (serializationExtension.init()){
-				// if we are not already tracking whether serialization is enabled for this serialization extension
-				if (!("__isSerializationEnabled" in serializationExtension)){
-					// turn on serialization
-					serializationExtension.__isSerializationEnabled = true;
-				}
-				// if we don't already have an event handler for this serialization extension
-				if (!("__eventHandler" in serializationExtension)){
-					// create a new event handler for the extension
-					serializationExtension.__eventHandler = { all:serializationExtension.write };
-					// subscribe the event handler
-					// note: this creates a closure which persists dbName, matchFn, and remoteBackup
-					Composite.subscribe( serializationExtension.__eventHandler );
-				}
+				// persist the serialization extension by name
+				_serializationExtensions[serializationExtension.name] = serializationExtension;
+				// enable serialization
+				_setSerialization(serializationExtension,true);
 			}
 		} else {				
 			throw("Invalid serialization extension");	
 		}
 	}
 	
+	// note: this is a hard stop, rather than a graceful stop - and happens out of event sequence (i.e. immediately)
 	Composite.stopSerialize = function( serializationExtension ){
 		// if serializationExtension is an object
-		// and it has an __eventHandler
-		if (_.isObject(serializationExtension) && ("__eventHandler" in serializationExtension) ){
-			// unsubcribe the __eventHandler
-			Composite.unsubscribe( serializationExtension.__eventHandler );
-			// and delete it from the serializationExtension object
-			delete serializationExtension.__eventHandler;
-		}
+		if (_.isObject(serializationExtension)){
+			_setSerialization(serializationExtension,false);
+		}	
 	}
 	
+	// note: this pauses serialization in sequence while deserializing
+	// this occurs inline with the event stream, so the event queue will contain an event which pauses serialization, deserializes, and then reenables serialization
 	Composite.deserialize = function( serializationExtension ){
-		if (_.isObject(serializationExtension) && "init" in serializationExtension && "write" in serializationExtension && "read" in serializationExtension){
+		// if the serializaton object has the expected interface
+		if (_.isObject(serializationExtension) && ("init" in serializationExtension) && ("write" in serializationExtension) && ("read" in serializationExtension) && (serializationExtension.hasOwnProperty("name"))){
 			// initialize the serialization extension
 			if (serializationExtension.init()){
-				// if we are not already tracking whether serialization is enabled for this serialization extension
-				if (!("__isSerializationEnabled" in serializationExtension)){
-					// turn on serialization
-					serializationExtension.__isSerializationEnabled = true;
-				}
-				// persist the old state
-				var wasSerializationEnabled = serializationExtension.__isSerializationEnabled;
+				// persist the serialization extension by name
+				_serializationExtensions[serializationExtension.name] = serializationExtension;
+				// get the enabledness of the serialization extension
+				var wasSerializationEnabled = _isSerializationEnabled(serializationExtension);
 				try
 				{
-					// turn off event serialization of the dbName briefly
+					Ti.API.trace( 'CES:queueing pause of serialization extention:'+serializationExtension.name);
+					// turn off event serialization to the stream extension briefly while we deserialize
+					Ti.App.fireEvent(_EVENT_STREAM_CTRL, { name:serializationExtension.name, enabled:false });
 					serializationExtension.__isSerializationEnabled = false;
 					// read the serialized data
 					serializationExtension.read(_publish);			
 				}
 				finally
 				{
-					// turn back on event serialzation for the db
-					serializationExtension.__isSerializationEnabled = wasSerializationEnabled;
+					Ti.API.trace( 'CES:queing unpause of serialization extention:'+serializationExtension.name+' to '+wasSerializationEnabled );
+					// restore previous enabledness of event serialization to the stream extension briefly after we deserialize
+					Ti.App.fireEvent(_EVENT_STREAM_CTRL, { name:serializationExtension.name, enabled:wasSerializationEnabled });
 				}
 			}
 		}	
@@ -828,6 +917,7 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 	 */
 	Composite.initialize = function(enableSyncAdapter) {
 		Ti.App.addEventListener(_EVENT_STREAM, _onCompositeEvent);
+		Ti.App.addEventListener(_EVENT_STREAM_CTRL, _onCompositeEventControl)
 		// if composite event stream sync adapters should be enabled
 		if (enableSyncAdapter) {
 			// register the composite domain event signatures
@@ -844,6 +934,7 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 	 * called the Composite.initialize method to avoid memory leaks.
 	 */
 	Composite.finalize = function() {
+		Ti.App.removeEventListener(_EVENT_STREAM_CTRL, _onCompositeEventControl)
 		Ti.App.removeEventListener(_EVENT_STREAM, _onCompositeEvent);
 		// clean up variables
 		delete _eventSources;
