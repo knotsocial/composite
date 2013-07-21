@@ -503,6 +503,7 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 ];
 	var _TBL_CES_SELECT = "SELECT K,N,P FROM tbl_CES ORDER BY T";
 	var _TBL_CES_INSERT = "REPLACE INTO tbl_CES (K,N,P) VALUES (?,?,?)";
+	var _TBL_CES_DELETE = "DELETE FROM tbl_CES WHERE (K=?)"
 	
 	/**
 	 * @method sql
@@ -725,11 +726,39 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 			}
 		}
 		
+		// removes a row from the sqlite database based on the eventKey
+		function _remove(eventKey){
+			// logging
+			Ti.API.debug('CES Serialoization Delete K:'+eventKey);
+			// open the database
+			var db = Ti.Database.open(dbName);
+			try {
+				// delete the seialized event which matches the key
+				var rows = db.execute(_TBL_CES_DELETE,[eventKey]);
+				try {
+					// all done
+				}
+				finally{
+					// if for some reason it returned a result set			
+					if (rows!==null){
+						rows.close();
+						rows = null;
+					}
+				}
+			}
+			finally{
+				// close the database
+				db.close();
+				db = null;
+			}
+		}
+		
 		return { 
 			init: _init,
 			write: _write,
 			read: _read,
-			name: _name 
+			name: _name,
+			remove: _remove 
 		}		
 	}
 
@@ -776,12 +805,21 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 			_cache = new Array();
 			// note: I'm doing this instead of a while(_cache.length>0){ e = _cache.unshift() } because I assume it is be faster
 		}
+
+		// removes a row from the sqlite database based on the eventKey
+		function _remove(eventKey){
+			// logging
+			Ti.API.debug('CES Serialoization Delete K:'+eventKey);
+			// remove any prior entry in the cache with the same key
+			delete _cache[eventKey];
+		}
 		
 		return {
 			init: _init,
 			write: _write,
 			read: _read,
-			name: _name
+			name: _name,
+			remove: _remove
 		}
 	}	
 	
@@ -903,7 +941,6 @@ CREATE INDEX IF NOT EXISTS idx_CES_T on tbl_CES ( \
 			}
 		}	
 	}
-
 
 	// initialize the event listener ------------------------------------------
 
